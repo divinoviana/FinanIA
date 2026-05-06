@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, subMonths } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -60,22 +60,51 @@ export default function App() {
       const txs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
       setTransactions(txs);
       
-      const currentMonth = format(new Date(), 'MMMM yyyy', { locale: ptBR });
-      if (txs.length > 0 && expandedMonths.length === 0) {
-        setExpandedMonths([currentMonth]);
-      }
+      // Auto-expand current month on first load if not set
+      const currentMonthKey = format(new Date(), 'yyyy-MM');
+      setExpandedMonths(prev => prev.length === 0 ? [currentMonthKey] : prev);
     });
   }, [user]);
 
   const groupedByMonth = useMemo(() => {
-    const groups: { [key: string]: Transaction[] } = {};
+    const groups: { [key: string]: { label: string, txs: Transaction[] } } = {};
+    const year = new Date().getFullYear();
+    
+    // Create placeholders for all 12 months for the current year
+    for (let m = 0; m < 12; m++) {
+      const date = new Date(year, m, 1);
+      const key = format(date, 'yyyy-MM');
+      groups[key] = {
+        label: format(date, 'MMMM yyyy', { locale: ptBR }),
+        txs: []
+      };
+    }
+
     transactions.forEach(tx => {
       const date = tx.date instanceof Timestamp ? tx.date.toDate() : new Date(tx.date);
-      const monthYear = format(date, 'MMMM yyyy', { locale: ptBR });
-      if (!groups[monthYear]) groups[monthYear] = [];
-      groups[monthYear].push(tx);
+      const key = format(date, 'yyyy-MM');
+      
+      // If transaction is from another year, add it dynamically
+      if (!groups[key]) {
+        groups[key] = {
+          label: format(date, 'MMMM yyyy', { locale: ptBR }),
+          txs: []
+        };
+      }
+      groups[key].txs.push(tx);
     });
-    return groups;
+
+    // Sort keys descending
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .reduce((obj, key) => {
+        // Only show months that have transactions OR are in the current year
+        const isCurrentYear = key.startsWith(year.toString());
+        if (groups[key].txs.length > 0 || isCurrentYear) {
+          obj[key] = groups[key];
+        }
+        return obj;
+      }, {} as { [key: string]: { label: string, txs: Transaction[] } });
   }, [transactions]);
 
   const stats = useMemo(() => {
@@ -166,11 +195,17 @@ export default function App() {
           <span className="text-2xl font-black tracking-tighter">FINAI.</span>
         </div>
         <div className="flex items-center gap-4">
-           <Button id="clear-data" variant="ghost" size="icon" onClick={clearAllData} title="Limpar Tudo" className="text-zinc-400 hover:text-red-500">
-            <Trash2 className="w-5 h-5" />
+           <div className="hidden md:block text-right mr-2">
+             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Ambiente</p>
+             <p className="text-xs font-bold text-zinc-900">Limpo & Organizado</p>
+           </div>
+           <Button id="clear-data" variant="outline" size="sm" onClick={clearAllData} title="Limpar Tudo" className="text-zinc-500 hover:text-red-500 hover:bg-red-50 border-zinc-200 rounded-xl px-3">
+            <Trash2 className="w-4 h-4 mr-2" /> 
+            <span className="hidden sm:inline">Resetar App</span>
           </Button>
-          <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border-2 border-white shadow-sm" />
-          <Button id="sign-out" variant="ghost" className="hidden md:flex text-zinc-500" onClick={signOut}>Sair</Button>
+          <div className="h-8 w-[1px] bg-zinc-100 mx-1" />
+          <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border-2 border-white shadow-md" />
+          <Button id="sign-out" variant="ghost" className="hidden lg:flex text-zinc-500" onClick={signOut}>Sair</Button>
         </div>
       </header>
 
@@ -204,33 +239,46 @@ export default function App() {
             </div>
           )}
 
-          {Object.keys(groupedByMonth).map(monthYear => (
-            <div key={monthYear} className="space-y-4">
+          {Object.entries(groupedByMonth).map(([monthKey, group]) => (
+            <div key={monthKey} className="space-y-4">
               <button 
                 onClick={() => setExpandedMonths(prev => 
-                  prev.includes(monthYear) ? prev.filter(m => m !== monthYear) : [...prev, monthYear]
+                  prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey]
                 )}
                 className="flex items-center gap-3 w-full text-left group"
               >
                 <h3 className="text-xl font-black tracking-tight capitalize group-hover:text-emerald-600 transition-colors">
-                  {monthYear}
+                  {group.label}
                 </h3>
+                {group.txs.length > 0 && (
+                  <span className="text-[10px] font-bold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
+                    {group.txs.length}
+                  </span>
+                )}
                 <div className="h-[1px] flex-grow bg-zinc-200" />
-                {expandedMonths.includes(monthYear) ? <ChevronDown className="w-5 h-5 text-zinc-300" /> : <ChevronRight className="w-5 h-5 text-zinc-300" />}
+                {expandedMonths.includes(monthKey) ? <ChevronDown className="w-5 h-5 text-zinc-300" /> : <ChevronRight className="w-5 h-5 text-zinc-300" />}
               </button>
 
-              <AnimatePresence>
-                {expandedMonths.includes(monthYear) && (
+              <AnimatePresence initial={false}>
+                {expandedMonths.includes(monthKey) && (
                   <motion.div 
+                    key={`content-${monthKey}`}
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
                     className="overflow-hidden"
                   >
                     <div className="space-y-3 pt-2">
-                      {groupedByMonth[monthYear].map(tx => (
-                        <TransactionRow key={tx.id} tx={tx} />
-                      ))}
+                      {group.txs.length === 0 ? (
+                        <div className="py-4 px-6 border-2 border-dashed border-zinc-100 rounded-2xl text-center text-zinc-300 text-sm italic">
+                          Sem lançamentos para este mês
+                        </div>
+                      ) : (
+                        group.txs.map(tx => (
+                          <TransactionRow key={tx.id} tx={tx} />
+                        ))
+                      )}
                     </div>
                   </motion.div>
                 )}

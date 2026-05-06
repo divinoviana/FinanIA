@@ -18,14 +18,25 @@ const PARSE_TRANSACTION_SCHEMA = {
 
 export async function parseTransaction(text: string): Promise<Partial<Transaction> & { dateOffsetDays?: number }> {
   try {
+    const now = new Date();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Extraia os detalhes do lançamento financeiro: "${text}". 
-      Tente identificar se é um gasto (expense) ou ganho (income). 
-      Extraia o valor numérico.
-      Se o usuário mencionar 'ontem' coloque dateOffsetDays: -1. Se não mencionar nada relativo a data, use 0.`,
+      contents: `Contexto Temporal: Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
+      
+      Entrada do Usuário: "${text}"
+      
+      Extraia os detalhes:
+      1. Descrição clara do item.
+      2. Valor (exclua moedas, retorne apenas número).
+      3. Tipo: 'income' (ganho/recebimento) ou 'expense' (gasto/pagamento).
+      4. Categoria: uma palavra (ex: Mercado, Aluguel, Salário, Lazer).
+      5. dateOffsetDays: 
+         - Se disse 'ontem': -1
+         - Se disse 'anteontem': -2
+         - Se não disse nada de data: 0
+      6. expenseType: fixed (contas fixas), flexible (variáveis), random (extras).`,
       config: {
-        systemInstruction: "Você é um assistente financeiro que extrai dados estruturados de frases simples.",
+        systemInstruction: "Você é um especialista em lançamentos financeiros. Extraia dados estruturados e precisos.",
         responseMimeType: "application/json",
         responseSchema: PARSE_TRANSACTION_SCHEMA
       }
