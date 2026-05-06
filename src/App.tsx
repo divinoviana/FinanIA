@@ -28,7 +28,7 @@ import {
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, signIn, signOut, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { Transaction } from '@/src/types';
-import { parseTransaction, parseTransactionWithFile } from '@/src/lib/gemini';
+import { parseTransactionWithDeepSeek } from '@/src/lib/deepseek';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -143,11 +143,11 @@ export default function App() {
     try {
       let parsed;
       if (file) {
-        toast.info("Analisando arquivo com IA...");
+        toast.info("Analisando arquivo com IA (DeepSeek)...");
         const base64 = await fileToBase64(file);
-        parsed = await parseTransactionWithFile(base64, file.type, text);
+        parsed = await parseTransactionWithDeepSeek(text, base64, file.type);
       } else {
-        parsed = await parseTransaction(text);
+        parsed = await parseTransactionWithDeepSeek(text);
       }
 
       if (parsed.amount) {
