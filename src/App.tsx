@@ -202,7 +202,7 @@ export default function App() {
           <Wallet className="w-12 h-12 text-white" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-4xl font-black tracking-tighter text-zinc-900">FINAI.</h1>
+          <h1 className="text-4xl font-black tracking-tighter text-zinc-900">FINAI</h1>
           <p className="text-zinc-500 font-medium">Controle financeiro simples por chat.</p>
         </div>
         <Button id="login-button" onClick={signIn} className="w-full h-16 text-lg font-bold bg-zinc-900 hover:bg-zinc-800 rounded-2xl shadow-xl transition-all hover:scale-[1.02]">
@@ -221,7 +221,7 @@ export default function App() {
           <div className="p-2 bg-emerald-500 rounded-lg">
             <Wallet className="w-5 h-5 text-white" />
           </div>
-          <span className="text-2xl font-black tracking-tighter">FINAI.</span>
+          <span className="text-2xl font-black tracking-tighter">FINAI</span>
         </div>
         <div className="flex items-center gap-4">
            <div className="hidden md:block text-right mr-2">
