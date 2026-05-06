@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['description', 'amount', 'type', 'date', 'userId']) &&
+             data.keys().size() <= 10 &&
+             data.description is string && data.description.size() <= 200 &&
+             data.amount is number && data.amount >= 0 &&
+             data.type in ['income', 'expense'] &&
+             data.date is timestamp &&
+             data.userId == request.auth.uid &&
+             (data.type == 'income' || data.expenseType in ['fixed', 'flexible', 'random']);
+    }
+
+    function isValidGoal(data) {
+      return data.keys().hasAll(['name', 'targetAmount', 'currentAmount', 'type', 'userId']) &&
+             data.keys().size() <= 10 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.targetAmount is number && data.targetAmount >= 0 &&
+             data.currentAmount is number && data.currentAmount >= 0 &&
+             data.type in ['shortTerm', 'longTerm'] &&
+             data.userId == request.auth.uid;
+    }
+
+    match /transactions/{transactionId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidTransaction(request.resource.data);
+      allow update: if isOwner(resource.data.userId) &&
+                       isValidTransaction(request.resource.data) &&
+                       request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /goals/{goalId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidGoal(request.resource.data);
+      allow update: if isOwner(resource.data.userId) &&
+                       isValidGoal(request.resource.data) &&
+                       request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction (income or expense)",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "expenseType": { "type": "string", "enum": ["fixed", "flexible", "random", "none"] },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["description", "amount", "type", "date", "userId"]
+    },
+    "goal": {
+      "title": "Goal",
+      "description": "Financial goal for the user",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "targetAmount": { "type": "number" },
+        "currentAmount": { "type": "number" },
+        "deadline": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["shortTerm", "longTerm"] },
+        "userId": { "type": "string" }
+      },
+      "required": ["name", "targetAmount", "currentAmount", "type", "userId"]
+    }
+  },
+  "firestore": {
+    "/transactions/{transactionId}": {
+      "schema": "transaction",
+      "description": "User's financial transactions"
+    },
+    "/goals/{goalId}": {
+      "schema": "goal",
+      "description": "User's financial goals"
+    }
+  }
+}
