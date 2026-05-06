@@ -7,7 +7,10 @@ import {
   Sparkles,
   Trash2,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Paperclip,
+  FileText,
+  X
 } from 'lucide-react';
 import { 
   collection, 
@@ -25,7 +28,7 @@ import {
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, signIn, signOut, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { Transaction } from '@/src/types';
-import { parseTransaction } from '@/src/lib/gemini';
+import { parseTransaction, parseTransactionWithFile } from '@/src/lib/gemini';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,8 +42,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
@@ -113,16 +118,38 @@ export default function App() {
     return { income, expenses, balance: income - expenses };
   }, [transactions]);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve(base64String);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim() || !user || isProcessing) return;
+    if ((!chatInput.trim() && !selectedFile) || !user || isProcessing) return;
 
     setIsProcessing(true);
     const text = chatInput;
+    const file = selectedFile;
     setChatInput('');
+    setSelectedFile(null);
 
     try {
-      const parsed = await parseTransaction(text);
+      let parsed;
+      if (file) {
+        toast.info("Analisando arquivo com IA...");
+        const base64 = await fileToBase64(file);
+        parsed = await parseTransactionWithFile(base64, file.type, text);
+      } else {
+        parsed = await parseTransaction(text);
+      }
+
       if (parsed.amount) {
         let finalDate = new Date();
         if (parsed.dateOffsetDays) {
@@ -140,9 +167,10 @@ export default function App() {
         });
         toast.success(`Registrado: ${parsed.description} - R$ ${parsed.amount.toLocaleString('pt-BR')}`);
       } else {
-        toast.error("Não entendi o registro. Tente: 'Gastei 50 no mercado hoje'");
+        toast.error("Não consegui interpretar o registro. Tente anexar uma imagem mais nítida ou digitar o valor.");
       }
     } catch (error) {
+      console.error(error);
       toast.error("Erro ao processar com IA.");
     } finally {
       setIsProcessing(false);
@@ -239,7 +267,7 @@ export default function App() {
             </div>
           )}
 
-          {Object.entries(groupedByMonth).map(([monthKey, group]) => (
+          {(Object.entries(groupedByMonth) as [string, { label: string, txs: Transaction[] }][]).map(([monthKey, group]) => (
             <div key={monthKey} className="space-y-4">
               <button 
                 onClick={() => setExpandedMonths(prev => 
@@ -291,25 +319,64 @@ export default function App() {
       <div className="fixed bottom-0 left-0 w-full p-6 md:p-8 shrink-0 bg-transparent pointer-events-none">
         <div className="max-w-2xl mx-auto pointer-events-auto">
           <form onSubmit={handleChatSubmit} className="relative">
+            <AnimatePresence>
+              {selectedFile && (
+                <motion.div 
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 20, opacity: 0 }}
+                  className="absolute -top-16 left-0 right-0 p-3 bg-white border border-zinc-100 rounded-2xl shadow-xl flex items-center justify-between mx-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-900 truncate max-w-[150px]">{selectedFile.name}</p>
+                      <p className="text-[10px] text-zinc-400">Pronto para análise</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedFile(null)} className="h-8 w-8 text-zinc-400 hover:text-red-500 rounded-full">
+                    <X className="w-4 h-4" />
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className={`
               flex items-center bg-white border-2 border-zinc-200 rounded-3xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all
               ${isProcessing ? 'border-emerald-500 scale-[1.02]' : 'focus-within:border-zinc-900'}
             `}>
-              <div className="p-3">
-                <Sparkles className={`w-6 h-6 ${isProcessing ? 'text-emerald-500 animate-pulse' : 'text-zinc-400'}`} />
-              </div>
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 text-zinc-400 hover:text-zinc-600 transition-colors"
+                title="Anexar arquivo ou imagem"
+              >
+                <Paperclip className="w-6 h-6" />
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) setSelectedFile(file);
+                }}
+                className="hidden" 
+                accept="image/*,application/pdf"
+              />
               <Input 
                 id="chat-input"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Diga o que gastou ou recebeu..."
+                placeholder={selectedFile ? "Adicione uma instrução (opcional)..." : "Diga o que gastou ou recebeu..."}
                 className="border-none shadow-none focus-visible:ring-0 text-lg h-14 bg-transparent placeholder:text-zinc-300 font-medium"
                 disabled={isProcessing}
               />
               <Button 
                 id="send-chat"
                 type="submit" 
-                disabled={isProcessing || !chatInput.trim()}
+                disabled={isProcessing || (!chatInput.trim() && !selectedFile)}
                 className="h-14 w-14 rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 transition-all shrink-0"
               >
                 {isProcessing ? (
