@@ -9,18 +9,28 @@ function getAI() {
   if (aiInstance) return aiInstance;
   
   // Try multiple possible environment variable names and sources
-  const key = 
-    process.env.GEMINI_API_KEY || 
-    process.env.Gemini_API_Key || 
-    (import.meta as any).env.VITE_GEMINI_API_KEY || 
-    (import.meta as any).env.VITE_Gemini_API_Key;
+  const keys = [
+    process.env.Gemini_API_Key,
+    process.env.GEMINI_API_KEY,
+    (import.meta as any).env.VITE_Gemini_API_Key,
+    (import.meta as any).env.VITE_GEMINI_API_KEY
+  ];
 
-  if (!key || key === "undefined" || key === "null") {
-    console.error("Gemini API Key missing or invalid:", { key });
-    throw new Error("Gemini API Key não configurada. Por favor, adicione a variável GEMINI_API_KEY ou Gemini_API_Key nas ferramentas do AI Studio ou variáveis de ambiente do seu deploy (ex: Vercel).");
+  // Find the first key that exists and isn't a known placeholder or invalid string
+  const key = keys.find(k => 
+    k && 
+    k !== "undefined" && 
+    k !== "null" && 
+    !k.includes("MY_GEMINI_API_KEY") &&
+    k.trim().length > 0
+  )?.trim();
+
+  if (!key) {
+    console.error("Gemini API Key missing or invalid:", { keys });
+    throw new Error("Gemini API Key não configurada. Por favor, adicione a variável Gemini_API_Key nas configurações do Vercel ou do AI Studio.");
   }
 
-  aiInstance = new GoogleGenAI({ apiKey: key });
+  aiInstance = new GoogleGenAI(key);
   return aiInstance;
 }
 
