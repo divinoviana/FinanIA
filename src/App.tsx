@@ -171,7 +171,8 @@ export default function App() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao processar com IA.");
+      const msg = error instanceof Error ? error.message : "Erro ao processar com IA.";
+      toast.error(msg);
     } finally {
       setIsProcessing(false);
     }
