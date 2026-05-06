@@ -10,7 +10,8 @@ import {
   ChevronDown,
   Paperclip,
   FileText,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { 
   collection, 
@@ -36,6 +37,7 @@ import { Toaster, toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
+import { generateMonthlyPDF } from '@/src/lib/pdfReport';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -285,6 +287,20 @@ export default function App() {
                   </span>
                 )}
                 <div className="h-[1px] flex-grow bg-zinc-200" />
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    generateMonthlyPDF(group.label, group.txs);
+                  }}
+                  className="text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl px-2 h-8"
+                  title="Exportar PDF"
+                  disabled={group.txs.length === 0}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  <span className="text-xs font-bold">PDF</span>
+                </Button>
                 {expandedMonths.includes(monthKey) ? <ChevronDown className="w-5 h-5 text-zinc-300" /> : <ChevronRight className="w-5 h-5 text-zinc-300" />}
               </button>
 
