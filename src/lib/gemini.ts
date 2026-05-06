@@ -7,11 +7,20 @@ let aiInstance: GoogleGenAI | null = null;
 
 function getAI() {
   if (aiInstance) return aiInstance;
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    throw new Error("Gemini API Key não configurada. Por favor, adicione a variável GEMINI_API_KEY ou Gemini_API_Key nas configurações.");
+  
+  // Try multiple possible environment variable names and sources
+  const key = 
+    process.env.GEMINI_API_KEY || 
+    process.env.Gemini_API_Key || 
+    import.meta.env.VITE_GEMINI_API_KEY || 
+    import.meta.env.VITE_Gemini_API_Key;
+
+  if (!key || key === "undefined" || key === "null") {
+    console.error("Gemini API Key missing or invalid:", { key });
+    throw new Error("Gemini API Key não configurada. Por favor, adicione a variável GEMINI_API_KEY ou Gemini_API_Key nas ferramentas do AI Studio ou variáveis de ambiente do seu deploy (ex: Vercel).");
   }
-  aiInstance = new GoogleGenAI(key);
+
+  aiInstance = new GoogleGenAI({ apiKey: key });
   return aiInstance;
 }
 
