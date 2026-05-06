@@ -272,21 +272,25 @@ export default function App() {
 
           {(Object.entries(groupedByMonth) as [string, { label: string, txs: Transaction[] }][]).map(([monthKey, group]) => (
             <div key={monthKey} className="space-y-4">
-              <button 
-                onClick={() => setExpandedMonths(prev => 
-                  prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey]
-                )}
-                className="flex items-center gap-3 w-full text-left group"
-              >
-                <h3 className="text-xl font-black tracking-tight capitalize group-hover:text-emerald-600 transition-colors">
-                  {group.label}
-                </h3>
-                {group.txs.length > 0 && (
-                  <span className="text-[10px] font-bold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
-                    {group.txs.length}
-                  </span>
-                )}
-                <div className="h-[1px] flex-grow bg-zinc-200" />
+              <div className="flex items-center gap-3 w-full">
+                <button 
+                  onClick={() => setExpandedMonths(prev => 
+                    prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey]
+                  )}
+                  className="flex items-center gap-3 flex-grow text-left group"
+                >
+                  <h3 className="text-xl font-black tracking-tight capitalize group-hover:text-emerald-600 transition-colors">
+                    {group.label}
+                  </h3>
+                  {group.txs.length > 0 && (
+                    <span className="text-[10px] font-bold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
+                      {group.txs.length}
+                    </span>
+                  )}
+                  <div className="h-[1px] flex-grow bg-zinc-200" />
+                  {expandedMonths.includes(monthKey) ? <ChevronDown className="w-5 h-5 text-zinc-300 group-hover:text-emerald-600" /> : <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-emerald-600" />}
+                </button>
+                
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -301,8 +305,7 @@ export default function App() {
                   <Download className="w-4 h-4 mr-2" />
                   <span className="text-xs font-bold">PDF</span>
                 </Button>
-                {expandedMonths.includes(monthKey) ? <ChevronDown className="w-5 h-5 text-zinc-300" /> : <ChevronRight className="w-5 h-5 text-zinc-300" />}
-              </button>
+              </div>
 
               <AnimatePresence initial={false}>
                 {expandedMonths.includes(monthKey) && (
