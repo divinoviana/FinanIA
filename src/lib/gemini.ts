@@ -12,8 +12,8 @@ function getAI() {
   const key = 
     process.env.GEMINI_API_KEY || 
     process.env.Gemini_API_Key || 
-    import.meta.env.VITE_GEMINI_API_KEY || 
-    import.meta.env.VITE_Gemini_API_Key;
+    (import.meta as any).env.VITE_GEMINI_API_KEY || 
+    (import.meta as any).env.VITE_Gemini_API_Key;
 
   if (!key || key === "undefined" || key === "null") {
     console.error("Gemini API Key missing or invalid:", { key });
@@ -41,36 +41,30 @@ export async function parseTransaction(text: string): Promise<Partial<Transactio
   try {
     const ai = getAI();
     const now = new Date();
-    const model = ai.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: "Você é um especialista em lançamentos financeiros. Extraia dados estruturados e precisos.",
-      generationConfig: {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Contexto Temporal: Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
+      
+      Entrada do Usuário: "${text}"
+      
+      Extraia os detalhes:
+      1. Descrição clara do item.
+      2. Valor (exclua moedas, retorne apenas número).
+      3. Tipo: 'income' (ganho/recebimento) ou 'expense' (gasto/pagamento).
+      4. Categoria: uma palavra (ex: Mercado, Aluguel, Salário, Lazer).
+      5. dateOffsetDays: 
+         - Se disse 'ontem': -1
+         - Se disse 'anteontem': -2
+         - Se não disse nada de data: 0
+      6. expenseType: fixed (contas fixas), flexible (variáveis), random (extras).`,
+      config: {
+        systemInstruction: "Você é um especialista em lançamentos financeiros. Extraia dados estruturados e precisos.",
         responseMimeType: "application/json",
         responseSchema: PARSE_TRANSACTION_SCHEMA
       }
     });
 
-    const result = await model.generateContent([
-      {
-        text: `Contexto Temporal: Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
-        
-        Entrada do Usuário: "${text}"
-        
-        Extraia os detalhes:
-        1. Descrição clara do item.
-        2. Valor (exclua moedas, retorne apenas número).
-        3. Tipo: 'income' (ganho/recebimento) ou 'expense' (gasto/pagamento).
-        4. Categoria: uma palavra (ex: Mercado, Aluguel, Salário, Lazer).
-        5. dateOffsetDays: 
-           - Se disse 'ontem': -1
-           - Se disse 'anteontem': -2
-           - Se não disse nada de data: 0
-        6. expenseType: fixed (contas fixas), flexible (variáveis), random (extras).`
-      }
-    ]);
-
-    const response = await result.response;
-    const json = JSON.parse(response.text() || '{}');
+    const json = JSON.parse(response.text || '{}');
     console.log("Gemini Parse Success:", json);
     return json;
   } catch (error) {
@@ -83,36 +77,34 @@ export async function parseTransactionWithFile(fileData: string, mimeType: strin
   try {
     const ai = getAI();
     const now = new Date();
-    const model = ai.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      systemInstruction: "Você é um especialista em analisar documentos financeiros (PDF/Imagens). Extraia valor, descrição, categoria e tipo.",
-      generationConfig: {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [
+        {
+          inlineData: {
+            data: fileData,
+            mimeType: mimeType
+          }
+        },
+        {
+          text: `Analise o arquivo anexo (pode ser um comprovante, nota fiscal ou boleto).
+          
+          Instrução Adicional do Usuário: "${text}"
+          Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
+          
+          Extraia os dados estruturados do lançamento financeiro encontrado no arquivo. 
+          Se o usuário especificou um mês ou data na instrução adicional, tente respeitar. 
+          Caso contrário, use a data encontrada no documento ou a data de hoje.`
+        }
+      ],
+      config: {
+        systemInstruction: "Você é um especialista em analisar documentos financeiros (PDF/Imagens). Extraia valor, descrição, categoria e tipo.",
         responseMimeType: "application/json",
         responseSchema: PARSE_TRANSACTION_SCHEMA
       }
     });
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: fileData,
-          mimeType: mimeType
-        }
-      },
-      {
-        text: `Analise o arquivo anexo (pode ser um comprovante, nota fiscal ou boleto).
-        
-        Instrução Adicional do Usuário: "${text}"
-        Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
-        
-        Extraia os dados estruturados do lançamento financeiro encontrado no arquivo. 
-        Se o usuário especificou um mês ou data na instrução adicional, tente respeitar. 
-        Caso contrário, use a data encontrada no documento ou a data de hoje.`
-      }
-    ]);
-
-    const response = await result.response;
-    const json = JSON.parse(response.text() || '{}');
+    const json = JSON.parse(response.text || '{}');
     console.log("Gemini File Parse Success:", json);
     return json;
   } catch (error) {
