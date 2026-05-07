@@ -28,6 +28,19 @@
         "userId": { "type": "string" }
       },
       "required": ["name", "targetAmount", "currentAmount", "type", "userId"]
+    },
+    "investment": {
+      "title": "Investment",
+      "description": "User's investment or savings account",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "balance": { "type": "number" },
+        "type": { "type": "string", "enum": ["savings", "stocks", "fixedIncome", "crypto", "others"] },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "balance", "type", "userId", "updatedAt"]
     }
   },
   "firestore": {
@@ -38,6 +51,10 @@
     "/goals/{goalId}": {
       "schema": "goal",
       "description": "User's financial goals"
+    },
+    "/investments/{investmentId}": {
+      "schema": "investment",
+      "description": "User's individual investments and savings"
     }
   }
 }

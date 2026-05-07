@@ -30,3 +30,14 @@ export interface Budget {
   limit: number;
   spent: number;
 }
+
+export type InvestmentType = 'savings' | 'stocks' | 'fixedIncome' | 'crypto' | 'others';
+
+export interface Investment {
+  id: string;
+  name: string;
+  balance: number;
+  type: InvestmentType;
+  userId: string;
+  updatedAt: Date | Timestamp;
+}

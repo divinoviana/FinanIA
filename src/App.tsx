@@ -13,7 +13,11 @@ import {
   X,
   Download,
   Mic,
-  MicOff
+  MicOff,
+  PiggyBank,
+  Plus,
+  ArrowUpRight,
+  Activity
 } from 'lucide-react';
 import { 
   collection, 
@@ -26,11 +30,12 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  updateDoc,
   writeBatch
 } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, signIn, signOut, handleFirestoreError, OperationType } from '@/src/lib/firebase';
-import { Transaction } from '@/src/types';
+import { Transaction, Investment, InvestmentType } from '@/src/types';
 import { parseTransactionWithDeepSeek } from '@/src/lib/deepseek';
 import { parseTransactionWithFile } from '@/src/lib/gemini';
 import { Button } from '@/components/ui/button';
@@ -46,6 +51,8 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [currentView, setCurrentView] = useState<'transactions' | 'investments'>('transactions');
   const [chatInput, setChatInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -128,6 +135,19 @@ export default function App() {
     });
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'investments'),
+      where('userId', '==', user.uid),
+      orderBy('updatedAt', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const invs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investment));
+      setInvestments(invs);
+    });
+  }, [user]);
+
   const groupedByMonth = useMemo(() => {
     const groups: { [key: string]: { label: string, txs: Transaction[] } } = {};
     const year = new Date().getFullYear();
@@ -172,8 +192,15 @@ export default function App() {
   const stats = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const expenses = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    return { income, expenses, balance: income - expenses };
-  }, [transactions]);
+    const totalInvestments = investments.reduce((acc, inv) => acc + inv.balance, 0);
+    return { 
+      income, 
+      expenses, 
+      balance: income - expenses,
+      totalInvestments,
+      totalAssets: (income - expenses) + totalInvestments
+    };
+  }, [transactions, investments]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -270,45 +297,78 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans flex flex-col overflow-hidden">
+    <div className="h-screen bg-zinc-50 text-zinc-900 font-sans flex flex-col overflow-hidden">
       <Toaster position="top-center" richColors />
       
-      <header className="p-6 md:p-8 flex items-center justify-between bg-white border-b border-zinc-100 shrink-0">
+      <header className="p-4 md:px-8 bg-white border-b border-zinc-100 shrink-0 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-500 rounded-lg">
+          <div className="p-2 bg-zinc-900 rounded-lg">
             <Wallet className="w-5 h-5 text-white" />
           </div>
-          <span className="text-2xl font-black tracking-tighter">FINAI</span>
+          <span className="text-xl font-black tracking-tighter">FINAI</span>
         </div>
-        <div className="flex items-center gap-4">
-           <div className="hidden md:block text-right mr-2">
-             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Ambiente</p>
-             <p className="text-xs font-bold text-zinc-900">Limpo & Organizado</p>
-           </div>
-           <Button id="clear-data" variant="outline" size="sm" onClick={clearAllData} title="Limpar Tudo" className="text-zinc-500 hover:text-red-500 hover:bg-red-50 border-zinc-200 rounded-xl px-3">
-            <Trash2 className="w-4 h-4 mr-2" /> 
-            <span className="hidden sm:inline">Resetar App</span>
-          </Button>
-          <div className="h-8 w-[1px] bg-zinc-100 mx-1" />
-          <img src={user.photoURL || ''} alt="" className="w-10 h-10 rounded-full border-2 border-white shadow-md" />
-          <Button id="sign-out" variant="ghost" className="hidden lg:flex text-zinc-500" onClick={signOut}>Sair</Button>
+
+        <div className="flex bg-zinc-100 p-1 rounded-xl">
+          <button 
+            onClick={() => setCurrentView('transactions')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'transactions' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
+          >
+            Lançamentos
+          </button>
+          <button 
+            onClick={() => setCurrentView('investments')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'investments' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
+          >
+            Investimentos
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+           <Button id="clear-data" variant="ghost" size="icon" onClick={clearAllData} title="Resetar App" className="text-zinc-300 hover:text-red-500 rounded-full h-10 w-10">
+             <Trash2 className="w-4 h-4" /> 
+           </Button>
+           <div className="h-6 w-[1px] bg-zinc-100 mx-1" />
+           <img src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName}`} alt="" className="w-8 h-8 rounded-full border border-zinc-200" />
+           <Button variant="ghost" size="icon" onClick={signOut} className="rounded-full h-10 w-10 text-zinc-400 hover:text-zinc-900">
+             <X className="w-4 h-4" />
+           </Button>
         </div>
       </header>
 
-      <div className="px-6 py-4 bg-zinc-900 text-white shrink-0">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold mb-1">Saldo Total</p>
-            <p className="text-2xl font-black">R$ {stats.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="flex gap-8 text-right">
+      <div className="px-6 py-6 bg-zinc-900 text-white shrink-0 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[100px] -mr-32 -mt-32 rounded-full" />
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between md:items-end gap-6 relative z-10">
+          <div className="space-y-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Entradas</p>
-              <p className="font-bold text-emerald-400">+{stats.income.toLocaleString('pt-BR')}</p>
+              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Patrimônio Total</p>
+              <p className="text-4xl font-black tracking-tighter">R$ {stats.totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Saídas</p>
-              <p className="font-bold text-red-400">-{stats.expenses.toLocaleString('pt-BR')}</p>
+            <div className="flex gap-8">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Investido</p>
+                  <p className="text-sm font-black text-emerald-400">R$ {stats.totalInvestments.toLocaleString('pt-BR')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={ `w-8 h-8 rounded-lg ${stats.balance >=0 ? 'bg-blue-500/20' : 'bg-red-500/20'} flex items-center justify-center` }>
+                  <Activity className="w-4 h-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Saldo Mês</p>
+                  <p className={`text-sm font-black ${stats.balance >=0 ? 'text-blue-400':'text-red-400'}`}>R$ {stats.balance.toLocaleString('pt-BR')}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:block text-right">
+            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Status Patrimonial</p>
+            <div className="px-3 py-1 bg-zinc-800 rounded-full inline-flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span className="text-[10px] font-bold text-zinc-300">Crescimento Estável</span>
             </div>
           </div>
         </div>
@@ -316,14 +376,16 @@ export default function App() {
 
       <ScrollArea className="flex-grow p-6">
         <div className="max-w-4xl mx-auto space-y-8 pb-32">
-          {Object.keys(groupedByMonth).length === 0 && (
-            <div className="text-center py-20 space-y-4">
-              <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto">
-                <Sparkles className="w-10 h-10 text-zinc-300" />
-              </div>
-              <p className="text-zinc-400 font-medium italic">Nenhum lançamento registrado.<br/>Use a barra abaixo para começar.</p>
-            </div>
-          )}
+          {currentView === 'transactions' ? (
+            <>
+              {Object.keys(groupedByMonth).length === 0 && (
+                <div className="text-center py-20 space-y-4">
+                  <div className="w-20 h-20 bg-zinc-100 rounded-full flex items-center justify-center mx-auto">
+                    <Sparkles className="w-10 h-10 text-zinc-300" />
+                  </div>
+                  <p className="text-zinc-400 font-medium italic">Nenhum lançamento registrado.<br/>Use a barra abaixo para começar.</p>
+                </div>
+              )}
 
           {(Object.entries(groupedByMonth) as [string, { label: string, txs: Transaction[] }][]).map(([monthKey, group]) => (
             <div key={monthKey} className="space-y-4">
@@ -388,6 +450,10 @@ export default function App() {
               </AnimatePresence>
             </div>
           ))}
+            </>
+          ) : (
+            <InvestmentsView investments={investments} userId={user.uid} />
+          )}
         </div>
       </ScrollArea>
 
@@ -480,6 +546,207 @@ export default function App() {
     </div>
   );
 }
+
+const InvestmentsView: React.FC<{ investments: Investment[], userId: string }> = ({ investments, userId }) => {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newBalance, setNewBalance] = useState('');
+  const [newType, setNewType] = useState<InvestmentType>('savings');
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newBalance) return;
+    try {
+      await addDoc(collection(db, 'investments'), {
+        name: newName,
+        balance: parseFloat(newBalance),
+        type: newType,
+        userId: userId,
+        updatedAt: Timestamp.now()
+      });
+      setNewName('');
+      setNewBalance('');
+      setShowAdd(false);
+      toast.success("Investimento adicionado.");
+    } catch (e) {
+      toast.error("Erro ao salvar.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-black tracking-tight">Investimentos</h2>
+        <Button onClick={() => setShowAdd(!showAdd)} className="rounded-full bg-zinc-900 font-bold px-6">
+          <Plus className="w-4 h-4 mr-2" /> Novo
+        </Button>
+      </div>
+
+      <AnimatePresence>
+        {showAdd && (
+          <motion.form 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            onSubmit={handleAdd} 
+            className="overflow-hidden bg-white border-2 border-emerald-100 rounded-3xl shadow-xl"
+          >
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase ml-1">Instituição/Ativo</p>
+                  <Input placeholder="Ex: NuConta, Ações..." value={newName} onChange={e => setNewName(e.target.value)} className="rounded-xl border-zinc-200" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase ml-1">Valor Atual</p>
+                  <Input type="number" step="0.01" placeholder="R$ 0,00" value={newBalance} onChange={e => setNewBalance(e.target.value)} className="rounded-xl border-zinc-200" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase ml-1">Tipo</p>
+                  <select 
+                    value={newType} 
+                    onChange={e => setNewType(e.target.value as InvestmentType)}
+                    className="w-full h-10 px-3 bg-white border-zinc-200 rounded-xl text-sm font-medium focus:ring-1 focus:ring-zinc-900 border"
+                  >
+                    <option value="savings">Poupança</option>
+                    <option value="stocks">Ações / FIIs</option>
+                    <option value="fixedIncome">Renda Fixa</option>
+                    <option value="crypto">Cripto</option>
+                    <option value="others">Outros</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)} className="rounded-xl">Cancelar</Button>
+                <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl px-8">Salvar</Button>
+              </div>
+            </div>
+          </motion.form>
+        )}
+      </AnimatePresence>
+
+      {investments.length === 0 ? (
+        <div className="text-center py-20 bg-white border border-zinc-100 rounded-3xl space-y-4">
+          <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto">
+            <PiggyBank className="w-8 h-8 text-zinc-200" />
+          </div>
+          <p className="text-zinc-400 font-medium italic">Explore seu patrimônio.<br/>Adicione sua poupança ou investimentos.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {investments.map(inv => (
+            <InvestmentItem key={inv.id} inv={inv} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const InvestmentItem: React.FC<{ inv: Investment }> = ({ inv }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [newBalance, setNewBalance] = useState(inv.balance.toString());
+
+  const handleUpdate = async () => {
+    try {
+      await updateDoc(doc(db, 'investments', inv.id), {
+        balance: parseFloat(newBalance),
+        updatedAt: Timestamp.now()
+      });
+      setIsEditing(false);
+      toast.success(`${inv.name} atualizado!`);
+    } catch (e) {
+      toast.error("Erro ao atualizar");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm(`Excluir ${inv.name}?`)) return;
+    try {
+      await deleteDoc(doc(db, 'investments', inv.id));
+      toast.success("Investimento removido.");
+    } catch (e) {
+      toast.error("Erro ao remover");
+    }
+  };
+
+  const date = inv.updatedAt instanceof Timestamp ? inv.updatedAt.toDate() : new Date(inv.updatedAt);
+  const typeLabels: { [key in InvestmentType]: string } = {
+    savings: 'Poupança',
+    stocks: 'Ações/FIIs',
+    fixedIncome: 'Renda Fixa',
+    crypto: 'Cripto',
+    others: 'Outros'
+  };
+
+  return (
+    <motion.div 
+      initial={{ scale: 0.95, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm hover:shadow-xl transition-all space-y-4 relative overflow-hidden group"
+    >
+      <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+      
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+            <PiggyBank className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="font-black text-zinc-900">{inv.name}</h4>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{typeLabels[inv.type]}</span>
+          </div>
+        </div>
+        <button onClick={handleDelete} className="p-2 text-zinc-200 hover:text-red-500 transition-colors">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="bg-zinc-50/50 p-4 rounded-2xl space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Saldo Atual</p>
+          <span className="text-[10px] font-medium text-zinc-300 italic">{format(date, 'MMM yyyy', { locale: ptBR })}</span>
+        </div>
+
+        {isEditing ? (
+          <div className="flex gap-2">
+            <Input 
+              type="number" 
+              step="0.01" 
+              value={newBalance} 
+              onChange={e => setNewBalance(e.target.value)} 
+              autoFocus 
+              className="font-black text-xl bg-white border-zinc-200" 
+            />
+            <Button onClick={handleUpdate} size="icon" className="bg-zinc-900 rounded-xl shrink-0"><Send className="w-4 h-4"/></Button>
+            <Button variant="ghost" onClick={() => setIsEditing(false)} size="icon" className="text-zinc-400"><X className="w-4 h-4"/></Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <p className="text-2xl font-black text-zinc-900 tracking-tighter">
+              R$ {inv.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsEditing(true)} 
+              className="text-xs font-bold text-emerald-600 hover:bg-emerald-100 rounded-xl h-8 px-4"
+            >
+              Atualizar Saldo
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
+        <div className="flex items-center gap-1">
+          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+          <span>Monitorando em Tempo Real</span>
+        </div>
+        <span className="uppercase tracking-tighter">Refetência: {format(date, 'dd/MM/yy')}</span>
+      </div>
+    </motion.div>
+  );
+};
 
 const TransactionRow: React.FC<{ tx: Transaction }> = ({ tx }) => {
   const date = tx.date instanceof Timestamp ? tx.date.toDate() : new Date(tx.date);
