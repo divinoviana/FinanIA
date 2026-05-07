@@ -371,8 +371,8 @@ export default function App() {
         </div>
       </div>
 
-      <ScrollArea className="flex-grow p-6">
-        <div className="max-w-4xl mx-auto space-y-8 pb-32">
+      <main className="flex-1 min-h-0 overflow-y-auto p-6 scroll-smooth">
+        <div className="max-w-4xl mx-auto space-y-8 pb-10">
           {currentView === 'transactions' ? (
             <>
               {Object.keys(groupedByMonth).length === 0 && (
@@ -452,10 +452,10 @@ export default function App() {
             <InvestmentsView investments={investments} userId={user.uid} />
           )}
         </div>
-      </ScrollArea>
+      </main>
 
-      <div className="fixed bottom-0 left-0 w-full p-6 md:p-8 shrink-0 bg-transparent pointer-events-none">
-        <div className="max-w-2xl mx-auto pointer-events-auto">
+      <div className="p-6 md:px-8 border-t border-zinc-100 bg-white shrink-0">
+        <div className="max-w-4xl mx-auto">
           <form onSubmit={handleChatSubmit} className="relative">
             <AnimatePresence>
               {selectedFile && (
@@ -482,8 +482,8 @@ export default function App() {
             </AnimatePresence>
 
             <div className={`
-              flex items-center bg-white border-2 border-zinc-200 rounded-3xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all
-              ${isProcessing ? 'border-emerald-500 scale-[1.02]' : 'focus-within:border-zinc-900'}
+              flex items-center bg-zinc-50 border-2 border-zinc-100 rounded-3xl p-2 transition-all
+              ${isProcessing ? 'border-emerald-500 scale-[1.01]' : 'focus-within:border-zinc-900 focus-within:bg-white'}
             `}>
               <button 
                 type="button"
@@ -516,14 +516,14 @@ export default function App() {
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder={selectedFile ? "Adicione uma instrução (opcional)..." : "Diga o que gastou ou recebeu..."}
-                className="border-none shadow-none focus-visible:ring-0 text-lg h-14 bg-transparent placeholder:text-zinc-300 font-medium"
+                className="border-none shadow-none focus-visible:ring-0 text-sm md:text-lg h-12 md:h-14 bg-transparent placeholder:text-zinc-300 font-medium"
                 disabled={isProcessing}
               />
               <Button 
                 id="send-chat"
                 type="submit" 
                 disabled={isProcessing || (!chatInput.trim() && !selectedFile)}
-                className="h-14 w-14 rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 transition-all shrink-0"
+                className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 transition-all shrink-0"
               >
                 {isProcessing ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -532,11 +532,6 @@ export default function App() {
                 )}
               </Button>
             </div>
-            {isProcessing && (
-              <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] font-bold px-4 py-2 rounded-full uppercase tracking-widest animate-bounce shadow-xl">
-                A IA está processando...
-              </div>
-            )}
           </form>
         </div>
       </div>
