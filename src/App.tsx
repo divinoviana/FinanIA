@@ -150,11 +150,13 @@ export default function App() {
 
   const groupedByMonth = useMemo(() => {
     const groups: { [key: string]: { label: string, txs: Transaction[] } } = {};
-    const year = new Date().getFullYear();
+    const now = new Date();
+    const currentYear = now.getFullYear();
     
-    // Create placeholders for all 12 months for the current year
+    // Create placeholders for all 12 months of the CURRENT year
+    // This allows the user to see and navigate the whole year even if empty
     for (let m = 0; m < 12; m++) {
-      const date = new Date(year, m, 1);
+      const date = new Date(currentYear, m, 1);
       const key = format(date, 'yyyy-MM');
       groups[key] = {
         label: format(date, 'MMMM yyyy', { locale: ptBR }),
@@ -166,7 +168,6 @@ export default function App() {
       const date = tx.date instanceof Timestamp ? tx.date.toDate() : new Date(tx.date);
       const key = format(date, 'yyyy-MM');
       
-      // If transaction is from another year, add it dynamically
       if (!groups[key]) {
         groups[key] = {
           label: format(date, 'MMMM yyyy', { locale: ptBR }),
@@ -176,15 +177,11 @@ export default function App() {
       groups[key].txs.push(tx);
     });
 
-    // Sort keys descending
+    // Sort keys descending (most recent months/years first)
     return Object.keys(groups)
       .sort((a, b) => b.localeCompare(a))
       .reduce((obj, key) => {
-        // Only show months that have transactions OR are in the current year
-        const isCurrentYear = key.startsWith(year.toString());
-        if (groups[key].txs.length > 0 || isCurrentYear) {
-          obj[key] = groups[key];
-        }
+        obj[key] = groups[key];
         return obj;
       }, {} as { [key: string]: { label: string, txs: Transaction[] } });
   }, [transactions]);
@@ -297,7 +294,7 @@ export default function App() {
   );
 
   return (
-    <div className="h-screen bg-zinc-50 text-zinc-900 font-sans flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-zinc-50 text-zinc-900 font-sans flex flex-col overflow-hidden">
       <Toaster position="top-center" richColors />
       
       <header className="p-4 md:px-8 bg-white border-b border-zinc-100 shrink-0 flex items-center justify-between">
