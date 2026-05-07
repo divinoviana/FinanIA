@@ -17,7 +17,10 @@ import {
   PiggyBank,
   Plus,
   ArrowUpRight,
-  Activity
+  Activity,
+  Home,
+  Car,
+  Briefcase
 } from 'lucide-react';
 import { 
   collection, 
@@ -189,7 +192,13 @@ export default function App() {
   const stats = useMemo(() => {
     const income = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
     const expenses = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-    const totalInvestments = investments.reduce((acc, inv) => acc + inv.balance, 0);
+    
+    // Only sum financial investments (liquid or near-liquid)
+    // Assets like real estate or vehicles are for tracking only as per user request
+    const totalInvestments = investments
+      .filter(inv => !['realEstate', 'vehicles', 'otherAssets'].includes(inv.type))
+      .reduce((acc, inv) => acc + inv.balance, 0);
+
     return { 
       income, 
       expenses, 
@@ -316,7 +325,7 @@ export default function App() {
             onClick={() => setCurrentView('investments')}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${currentView === 'investments' ? 'bg-white shadow-sm text-zinc-900' : 'text-zinc-500 hover:text-zinc-700'}`}
           >
-            Investimentos
+            Patrimônio
           </button>
         </div>
 
@@ -346,7 +355,7 @@ export default function App() {
                   <ArrowUpRight className="w-4 h-4 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Investido</p>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Investimentos & Bens</p>
                   <p className="text-sm font-black text-emerald-400">R$ {stats.totalInvestments.toLocaleString('pt-BR')}</p>
                 </div>
               </div>
@@ -544,22 +553,26 @@ const InvestmentsView: React.FC<{ investments: Investment[], userId: string }> =
   const [newName, setNewName] = useState('');
   const [newBalance, setNewBalance] = useState('');
   const [newType, setNewType] = useState<InvestmentType>('savings');
+  const [newStatus, setNewStatus] = useState<'paid_off' | 'financed'>('paid_off');
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newBalance) return;
     try {
+      const isAsset = ['realEstate', 'vehicles', 'otherAssets'].includes(newType);
+      
       await addDoc(collection(db, 'investments'), {
         name: newName,
         balance: parseFloat(newBalance),
         type: newType,
+        ...(isAsset ? { status: newStatus } : {}),
         userId: userId,
         updatedAt: Timestamp.now()
       });
       setNewName('');
       setNewBalance('');
       setShowAdd(false);
-      toast.success("Investimento adicionado.");
+      toast.success("Adicionado com sucesso.");
     } catch (e) {
       toast.error("Erro ao salvar.");
     }
@@ -568,9 +581,9 @@ const InvestmentsView: React.FC<{ investments: Investment[], userId: string }> =
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-black tracking-tight">Investimentos</h2>
+        <h2 className="text-2xl font-black tracking-tight">Meus Bens e Investimentos</h2>
         <Button onClick={() => setShowAdd(!showAdd)} className="rounded-full bg-zinc-900 font-bold px-6">
-          <Plus className="w-4 h-4 mr-2" /> Novo
+          <Plus className="w-4 h-4 mr-2" /> Adicionar
         </Button>
       </div>
 
@@ -604,10 +617,36 @@ const InvestmentsView: React.FC<{ investments: Investment[], userId: string }> =
                     <option value="stocks">Ações / FIIs</option>
                     <option value="fixedIncome">Renda Fixa</option>
                     <option value="crypto">Cripto</option>
+                    <option value="realEstate">Imóvel</option>
+                    <option value="vehicles">Veículo</option>
+                    <option value="otherAssets">Outros Bens</option>
                     <option value="others">Outros</option>
                   </select>
                 </div>
               </div>
+
+              {['realEstate', 'vehicles', 'otherAssets'].includes(newType) && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase ml-1">Status do Bem</p>
+                  <div className="flex gap-2">
+                    <button 
+                      type="button" 
+                      onClick={() => setNewStatus('paid_off')}
+                      className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border-2 ${newStatus === 'paid_off' ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}
+                    >
+                      Quitado
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setNewStatus('financed')}
+                      className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border-2 ${newStatus === 'financed' ? 'bg-orange-50 border-orange-500 text-orange-700' : 'bg-zinc-50 border-zinc-100 text-zinc-400'}`}
+                    >
+                      Financiado
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="ghost" onClick={() => setShowAdd(false)} className="rounded-xl">Cancelar</Button>
                 <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl px-8">Salvar</Button>
@@ -668,7 +707,19 @@ const InvestmentItem: React.FC<{ inv: Investment }> = ({ inv }) => {
     stocks: 'Ações/FIIs',
     fixedIncome: 'Renda Fixa',
     crypto: 'Cripto',
+    realEstate: 'Imóvel',
+    vehicles: 'Veículo',
+    otherAssets: 'Bem/Patrimônio',
     others: 'Outros'
+  };
+
+  const getIcon = () => {
+    switch (inv.type) {
+      case 'realEstate': return <Home className="w-5 h-5" />;
+      case 'vehicles': return <Car className="w-5 h-5" />;
+      case 'otherAssets': return <Briefcase className="w-5 h-5" />;
+      default: return <PiggyBank className="w-5 h-5" />;
+    }
   };
 
   return (
@@ -682,11 +733,21 @@ const InvestmentItem: React.FC<{ inv: Investment }> = ({ inv }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-            <PiggyBank className="w-5 h-5" />
+            {getIcon()}
           </div>
           <div>
             <h4 className="font-black text-zinc-900">{inv.name}</h4>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{typeLabels[inv.type]}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tighter">{typeLabels[inv.type]}</span>
+              {inv.status && (
+                <>
+                  <span className="text-zinc-200 text-xs">•</span>
+                  <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${inv.status === 'paid_off' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {inv.status === 'paid_off' ? 'Quitado' : 'Financiado'}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <button onClick={handleDelete} className="p-2 text-zinc-200 hover:text-red-500 transition-colors">

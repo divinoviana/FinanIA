@@ -36,7 +36,8 @@
       "properties": {
         "name": { "type": "string" },
         "balance": { "type": "number" },
-        "type": { "type": "string", "enum": ["savings", "stocks", "fixedIncome", "crypto", "others"] },
+        "type": { "type": "string", "enum": ["savings", "stocks", "fixedIncome", "crypto", "realEstate", "vehicles", "otherAssets", "others"] },
+        "status": { "type": "string", "enum": ["paid_off", "financed"], "description": "Optional status for assets" },
         "userId": { "type": "string" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

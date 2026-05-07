@@ -41,10 +41,11 @@ service cloud.firestore {
 
     function isValidInvestment(data) {
       return data.keys().hasAll(['name', 'balance', 'type', 'userId', 'updatedAt']) &&
-             data.keys().size() <= 10 &&
+             data.keys().size() <= 11 &&
              data.name is string && data.name.size() <= 100 &&
              data.balance is number &&
-             data.type in ['savings', 'stocks', 'fixedIncome', 'crypto', 'others'] &&
+             data.type in ['savings', 'stocks', 'fixedIncome', 'crypto', 'realEstate', 'vehicles', 'otherAssets', 'others'] &&
+             (!data.keys().contains('status') || data.status in ['paid_off', 'financed']) &&
              data.userId == request.auth.uid &&
              data.updatedAt is timestamp;
     }

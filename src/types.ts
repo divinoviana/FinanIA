@@ -31,13 +31,14 @@ export interface Budget {
   spent: number;
 }
 
-export type InvestmentType = 'savings' | 'stocks' | 'fixedIncome' | 'crypto' | 'others';
+export type InvestmentType = 'savings' | 'stocks' | 'fixedIncome' | 'crypto' | 'realEstate' | 'vehicles' | 'otherAssets' | 'others';
 
 export interface Investment {
   id: string;
   name: string;
   balance: number;
   type: InvestmentType;
+  status?: 'paid_off' | 'financed';
   userId: string;
   updatedAt: Date | Timestamp;
 }
