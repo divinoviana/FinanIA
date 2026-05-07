@@ -39,6 +39,16 @@ service cloud.firestore {
              data.userId == request.auth.uid;
     }
 
+    function isValidInvestment(data) {
+      return data.keys().hasAll(['name', 'balance', 'type', 'userId', 'updatedAt']) &&
+             data.keys().size() <= 10 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.balance is number &&
+             data.type in ['savings', 'stocks', 'fixedIncome', 'crypto', 'others'] &&
+             data.userId == request.auth.uid &&
+             data.updatedAt is timestamp;
+    }
+
     match /transactions/{transactionId} {
       allow get: if isOwner(resource.data.userId);
       allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -55,6 +65,16 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidGoal(request.resource.data);
       allow update: if isOwner(resource.data.userId) &&
                        isValidGoal(request.resource.data) &&
+                       request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    match /investments/{investmentId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidInvestment(request.resource.data);
+      allow update: if isOwner(resource.data.userId) &&
+                       isValidInvestment(request.resource.data) &&
                        request.resource.data.userId == resource.data.userId;
       allow delete: if isOwner(resource.data.userId);
     }
