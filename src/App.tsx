@@ -11,7 +11,9 @@ import {
   Paperclip,
   FileText,
   X,
-  Download
+  Download,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { 
   collection, 
@@ -30,6 +32,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth, signIn, signOut, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import { Transaction } from '@/src/types';
 import { parseTransactionWithDeepSeek } from '@/src/lib/deepseek';
+import { parseTransactionWithFile } from '@/src/lib/gemini';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,8 +49,60 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const recognitionRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    // Initialize Speech Recognition
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setChatInput(transcript);
+        setIsRecording(false);
+        toast.success("Voz capturada com sucesso!");
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech Recognition Error:", event.error);
+        setIsRecording(false);
+        if (event.error === 'not-allowed') {
+          toast.error("Permissão de microfone negada.");
+        } else {
+          toast.error("Erro ao capturar voz. Tente novamente.");
+        }
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      toast.error("Seu navegador não suporta reconhecimento de voz.");
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+    } else {
+      setChatInput('');
+      recognitionRef.current.start();
+      setIsRecording(true);
+      toast.info("Escutando... Fale o seu lançamento.");
+    }
+  };
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
@@ -145,9 +200,9 @@ export default function App() {
     try {
       let parsed;
       if (file) {
-        toast.info("Analisando arquivo com IA (DeepSeek)...");
+        toast.info("Analisando arquivo com IA (Multimodal)...");
         const base64 = await fileToBase64(file);
-        parsed = await parseTransactionWithDeepSeek(text, base64, file.type);
+        parsed = await parseTransactionWithFile(base64, file.type, text);
       } else {
         parsed = await parseTransactionWithDeepSeek(text);
       }
@@ -367,6 +422,14 @@ export default function App() {
               flex items-center bg-white border-2 border-zinc-200 rounded-3xl p-2 shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all
               ${isProcessing ? 'border-emerald-500 scale-[1.02]' : 'focus-within:border-zinc-900'}
             `}>
+              <button 
+                type="button"
+                onClick={toggleRecording}
+                className={`p-3 transition-colors ${isRecording ? 'text-red-500 animate-pulse' : 'text-zinc-400 hover:text-zinc-600'}`}
+                title="Gravar voz"
+              >
+                {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+              </button>
               <button 
                 type="button"
                 onClick={() => fileInputRef.current?.click()}

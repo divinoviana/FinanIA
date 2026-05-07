@@ -52,7 +52,7 @@ export async function parseTransaction(text: string): Promise<Partial<Transactio
     const ai = getAI();
     const now = new Date();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: `Contexto Temporal: Hoje é ${format(now, 'EEEE, dd/MM/yyyy', { locale: ptBR })}.
       
       Entrada do Usuário: "${text}"
@@ -88,7 +88,7 @@ export async function parseTransactionWithFile(fileData: string, mimeType: strin
     const ai = getAI();
     const now = new Date();
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: [
         {
           inlineData: {
