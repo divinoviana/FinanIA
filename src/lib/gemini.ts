@@ -42,7 +42,8 @@ const PARSE_TRANSACTION_SCHEMA = {
     type: { type: Type.STRING, enum: ["income", "expense"], description: "income se for dinheiro entrando, expense se for dinheiro saindo" },
     category: { type: Type.STRING, description: "Categoria em uma palavra (ex: Mercado, Aluguel, Salário, Lazer)" },
     dateOffsetDays: { type: Type.NUMBER, description: "Offset de dias relativo a hoje. 0 para hoje, -1 para ontem, etc." },
-    expenseType: { type: Type.STRING, enum: ["fixed", "flexible", "random"], description: "Classificação da despesa" }
+    expenseType: { type: Type.STRING, enum: ["fixed", "flexible", "random"], description: "Classificação da despesa" },
+    installments: { type: Type.NUMBER, description: "Número total de parcelas (ex: em 10x = 10). Default é 1." }
   },
   required: ["description", "amount", "type", "category"]
 };
@@ -66,7 +67,8 @@ export async function parseTransaction(text: string): Promise<Partial<Transactio
          - Se disse 'ontem': -1
          - Se disse 'anteontem': -2
          - Se não disse nada de data: 0
-      6. expenseType: fixed (contas fixas), flexible (variáveis), random (extras).`,
+      6. expenseType: fixed (contas fixas), flexible (variáveis), random (extras).
+      7. installments: número total de parcelas.`,
       config: {
         systemInstruction: "Você é um especialista em lançamentos financeiros. Extraia dados estruturados e precisos.",
         responseMimeType: "application/json",

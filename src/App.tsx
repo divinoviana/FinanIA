@@ -241,21 +241,37 @@ export default function App() {
       }
 
       if (parsed.amount) {
-        let finalDate = new Date();
+        const installments = (parsed as any).installments || 1;
+        const amountPerInstallment = parsed.amount / installments;
+        const baseDate = new Date();
         if (parsed.dateOffsetDays) {
-          finalDate.setDate(finalDate.getDate() + parsed.dateOffsetDays);
+          baseDate.setDate(baseDate.getDate() + parsed.dateOffsetDays);
         }
 
-        await addDoc(collection(db, 'transactions'), {
-          description: parsed.description,
-          amount: parsed.amount,
-          type: parsed.type,
-          expenseType: parsed.expenseType || (parsed.type === 'expense' ? 'random' : 'none'),
-          category: parsed.category,
-          date: Timestamp.fromDate(finalDate),
-          userId: user.uid
-        });
-        toast.success(`Registrado: ${parsed.description} - R$ ${parsed.amount.toLocaleString('pt-BR')}`);
+        const batchItems = [];
+        for (let i = 0; i < installments; i++) {
+          const currentDate = new Date(baseDate);
+          currentDate.setMonth(baseDate.getMonth() + i);
+          
+          const description = installments > 1 
+            ? `${parsed.description} (${i + 1}/${installments})`
+            : parsed.description;
+
+          batchItems.push(addDoc(collection(db, 'transactions'), {
+            description,
+            amount: amountPerInstallment,
+            type: parsed.type,
+            expenseType: parsed.expenseType || (parsed.type === 'expense' ? 'random' : 'none'),
+            category: parsed.category,
+            date: Timestamp.fromDate(currentDate),
+            userId: user.uid
+          }));
+        }
+
+        await Promise.all(batchItems);
+        toast.success(installments > 1 
+          ? `Registrado: ${parsed.description} - ${installments}x de R$ ${amountPerInstallment.toLocaleString('pt-BR')}`
+          : `Registrado: ${parsed.description} - R$ ${parsed.amount.toLocaleString('pt-BR')}`);
       } else {
         toast.error("Não consegui interpretar o registro. Tente anexar uma imagem mais nítida ou digitar o valor.");
       }

@@ -6,6 +6,7 @@ export interface TransactionParsingResult {
   category?: string;
   dateOffsetDays?: number;
   expenseType?: "fixed" | "flexible" | "random";
+  installments?: number;
 }
 
 const API_KEY = (import.meta as any).env.VITE_API_KEY || process.env.API_KEY || "";
@@ -24,6 +25,7 @@ Extraia os seguintes campos em JSON:
 4. category: Uma palavra (ex: Mercado, Aluguel, Salário, Lazer).
 5. dateOffsetDays: 0 para hoje, -1 para ontem.
 6. expenseType: 'fixed', 'flexible' ou 'random'.
+7. installments: número de parcelas (ex: em 5x = 5).
 
 Responda APENAS o JSON.`;
 
